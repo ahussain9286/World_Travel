@@ -23,13 +23,30 @@ public enum RiskLevel: Int, CaseIterable, Hashable {
     }
 
     /// Default segment colour for each level (used by `InvestmentProfileStyle.default`).
+    /// Colours form a muted earth-tone gradient that matches the design.
     public var defaultColor: Color {
         switch self {
-        case .low:        return Color(red: 0.16, green: 0.44, blue: 0.18) // dark green
-        case .mediumLow:  return Color(red: 0.47, green: 0.72, blue: 0.22) // lime green
-        case .medium:     return Color(red: 0.95, green: 0.77, blue: 0.06) // amber
-        case .mediumHigh: return Color(red: 0.95, green: 0.50, blue: 0.13) // orange
-        case .high:       return Color(red: 0.85, green: 0.16, blue: 0.16) // red
+        case .low:        return Color(red: 0.165, green: 0.439, blue: 0.208) // dark green
+        case .mediumLow:  return Color(red: 0.369, green: 0.420, blue: 0.102) // olive green
+        case .medium:     return Color(red: 0.494, green: 0.420, blue: 0.082) // golden brown
+        case .mediumHigh: return Color(red: 0.494, green: 0.200, blue: 0.063) // rust orange
+        case .high:       return Color(red: 0.494, green: 0.067, blue: 0.063) // dark red
+        }
+    }
+
+    /// Default expanded-section description for each level.
+    public var defaultDescription: String {
+        switch self {
+        case .low:
+            return "Ο πελάτης έχει ως βασικό στόχο τη διατήρηση κεφαλαίου με πολύ χαμηλή ανοχή στον κίνδυνο και στις διακυμάνσεις."
+        case .mediumLow:
+            return "Ο πελάτης έχει ως βασικό στόχο τη σταθερή αύξηση κεφαλαίου με χαμηλή ανοχή στον κίνδυνο και μικρές διακυμάνσεις."
+        case .medium:
+            return "Ο πελάτης έχει ως βασικό στόχο την ισόρροπη ανάπτυξη κεφαλαίου με μέτρια ανοχή στον κίνδυνο και τις διακυμάνσεις."
+        case .mediumHigh:
+            return "Ο πελάτης έχει ως βασικό στόχο τη δυναμική αύξηση κεφαλαίου με υψηλή ανοχή στον κίνδυνο και έντονες διακυμάνσεις."
+        case .high:
+            return "Ο πελάτης έχει ως βασικό στόχο τη μέγιστη δυνατή μακροπρόθεσμη απόδοση, με πολύ υψηλή ανοχή στον κίνδυνο και σε έντονες διακυμάνσεις."
         }
     }
 }
@@ -159,6 +176,10 @@ public struct InvestmentProfileModel {
     /// Label for the expandable information button.
     public var expandButtonLabel: String
 
+    /// Text shown in the expanded section.
+    /// Falls back to `riskLevel.defaultDescription` when `nil`.
+    public var expandedDescription: String?
+
     // MARK: Style
 
     /// All visual tokens. Swap or mutate to theme the card.
@@ -171,9 +192,14 @@ public struct InvestmentProfileModel {
         riskLevelLabel ?? riskLevel.defaultLabel
     }
 
-    /// The active colour for the current risk level.
+    /// The active colour for the current risk level (used for the label text).
     public var activeSegmentColor: Color {
         style.segmentColors[riskLevel] ?? riskLevel.defaultColor
+    }
+
+    /// The description shown in the expanded section.
+    public var resolvedExpandedDescription: String {
+        expandedDescription ?? riskLevel.defaultDescription
     }
 
     // MARK: – Initialisers
@@ -185,15 +211,17 @@ public struct InvestmentProfileModel {
         validUntil: String,
         expiredSince: String? = nil,
         expandButtonLabel: String = "Τι σημαίνει αυτό για εσένα",
+        expandedDescription: String? = nil,
         style: InvestmentProfileStyle = .default
     ) {
-        self.title              = title
-        self.riskLevel          = riskLevel
-        self.riskLevelLabel     = riskLevelLabel
-        self.validUntil         = validUntil
-        self.expiredSince       = expiredSince
-        self.expandButtonLabel  = expandButtonLabel
-        self.style              = style
+        self.title                = title
+        self.riskLevel            = riskLevel
+        self.riskLevelLabel       = riskLevelLabel
+        self.validUntil           = validUntil
+        self.expiredSince         = expiredSince
+        self.expandButtonLabel    = expandButtonLabel
+        self.expandedDescription  = expandedDescription
+        self.style                = style
     }
 }
 
@@ -252,7 +280,15 @@ public struct InvestmentProfileCard: View {
                 .padding(.bottom, 14)
 
             expandButton
-                .padding(.bottom, 16)
+                .padding(.bottom, isExpanded ? 12 : 16)
+
+            if isExpanded {
+                Text(model.resolvedExpandedDescription)
+                    .font(.system(size: 14))
+                    .foregroundColor(.black)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .padding(.bottom, 16)
+            }
 
             validUntilRow
                 .padding(.bottom, model.expiredSince != nil ? 12 : 0)
@@ -302,9 +338,12 @@ public struct InvestmentProfileCard: View {
 
             HStack(spacing: style.segmentSpacing) {
                 ForEach(1...segmentCount, id: \.self) { index in
+                    let positionLevel = RiskLevel(rawValue: index)
+                    let activeColor = positionLevel.map { style.segmentColors[$0] ?? $0.defaultColor }
+                                      ?? style.inactiveSegmentColor
                     RoundedRectangle(cornerRadius: 4)
                         .fill(index <= model.riskLevel.rawValue
-                              ? model.activeSegmentColor
+                              ? activeColor
                               : style.inactiveSegmentColor)
                         .frame(width: segmentWidth, height: style.segmentHeight)
                 }
@@ -369,6 +408,7 @@ public extension InvestmentProfileCard {
         validUntil: String,
         expiredSince: String? = nil,
         expandButtonLabel: String = "Τι σημαίνει αυτό για εσένα",
+        expandedDescription: String? = nil,
         style: InvestmentProfileStyle = .default,
         onExpandTapped: @escaping () -> Void = {}
     ) {
@@ -379,6 +419,7 @@ public extension InvestmentProfileCard {
                 validUntil: validUntil,
                 expiredSince: expiredSince,
                 expandButtonLabel: expandButtonLabel,
+                expandedDescription: expandedDescription,
                 style: style
             ),
             onExpandTapped: onExpandTapped
@@ -403,21 +444,21 @@ struct InvestmentProfileCard_Previews: PreviewProvider {
                 ))
                 .previewDisplayName("Low – expired")
 
-                // --- Medium Low (lime green) ---
+                // --- Medium Low (olive green) ---
                 InvestmentProfileCard(model: InvestmentProfileModel(
                     riskLevel: .mediumLow,
                     validUntil: "June 30, 2027"
                 ))
                 .previewDisplayName("Medium Low – valid")
 
-                // --- Medium (amber) ---
+                // --- Medium (golden brown) ---
                 InvestmentProfileCard(model: InvestmentProfileModel(
                     riskLevel: .medium,
                     validUntil: "December 31, 2030"
                 ))
                 .previewDisplayName("Medium – valid")
 
-                // --- Medium High (orange) ---
+                // --- Medium High (rust orange) ---
                 InvestmentProfileCard(model: InvestmentProfileModel(
                     riskLevel: .mediumHigh,
                     validUntil: "September 1, 2028",
@@ -425,7 +466,7 @@ struct InvestmentProfileCard_Previews: PreviewProvider {
                 ))
                 .previewDisplayName("Medium High – expired")
 
-                // --- High (red) ---
+                // --- High (dark red) ---
                 InvestmentProfileCard(model: InvestmentProfileModel(
                     riskLevel: .high,
                     validUntil: "March 1, 2029",
