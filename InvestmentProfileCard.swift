@@ -14,15 +14,11 @@ public struct RiskSegment: Identifiable {
 
     public let id = UUID()
 
-    /// Accessible label for the segment (e.g. "Low", "Medium High").
-    public let label: String
-
     /// Fill colour used when this segment is *active* (completed).
     /// When the segment is inactive the card style's `inactiveSegmentColor` is used instead.
     public let color: ColorProvider
 
-    public init(label: String, color: ColorProvider) {
-        self.label = label
+    public init(color: ColorProvider) {
         self.color = color
     }
 }
@@ -370,11 +366,11 @@ public extension RiskSegment {
     /// whatever the backend returns.
     static var defaultSegments: [RiskSegment] {
         [
-            RiskSegment(label: "Low",         color: Color(red: 0.165, green: 0.439, blue: 0.208)),
-            RiskSegment(label: "Medium Low",  color: Color(red: 0.369, green: 0.420, blue: 0.102)),
-            RiskSegment(label: "Medium",      color: Color(red: 0.494, green: 0.420, blue: 0.082)),
-            RiskSegment(label: "Medium High", color: Color(red: 0.494, green: 0.200, blue: 0.063)),
-            RiskSegment(label: "High",        color: Color(red: 0.494, green: 0.067, blue: 0.063)),
+            RiskSegment(color: Color(red: 0.165, green: 0.439, blue: 0.208)),
+            RiskSegment(color: Color(red: 0.369, green: 0.420, blue: 0.102)),
+            RiskSegment(color: Color(red: 0.494, green: 0.420, blue: 0.082)),
+            RiskSegment(color: Color(red: 0.494, green: 0.200, blue: 0.063)),
+            RiskSegment(color: Color(red: 0.494, green: 0.067, blue: 0.063)),
         ]
     }
 }
@@ -432,10 +428,10 @@ struct InvestmentProfileCard_Previews: PreviewProvider {
                 // --- Custom: backend-provided 4-segment bar ---
                 InvestmentProfileCard(model: InvestmentProfileCardModel(
                     segments: [
-                        RiskSegment(label: "Conservative", color: .blue),
-                        RiskSegment(label: "Balanced",     color: .teal),
-                        RiskSegment(label: "Growth",       color: .orange),
-                        RiskSegment(label: "Aggressive",   color: .red),
+                        RiskSegment(color: .blue),
+                        RiskSegment(color: .teal),
+                        RiskSegment(color: .orange),
+                        RiskSegment(color: .red),
                     ],
                     completedSegments: 2,
                     validUntil: "July 4, 2028",
