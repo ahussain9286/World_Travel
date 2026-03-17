@@ -1,69 +1,111 @@
 import SwiftUI
 
-// MARK: - RiskLevel
+// MARK: - ColorProvider
 
-/// Represents the investor risk level, ordered from lowest to highest.
-/// The raw `Int` value equals the number of segments that should be filled.
-public enum RiskLevel: Int, CaseIterable, Hashable {
-    case low = 1
-    case mediumLow = 2
-    case medium = 3
-    case mediumHigh = 4
-    case high = 5
+/// Any SwiftUI `Color` value can be used wherever a `ColorProvider` is expected.
+/// Callers can pass literal colours (`Color(red:green:blue:)`, `.red`, etc.)
+/// or colours decoded from backend data.
+public typealias ColorProvider = Color
 
-    /// Default display label shown above the segment bar.
-    public var defaultLabel: String {
-        switch self {
-        case .low:        return "Low"
-        case .mediumLow:  return "Medium Low"
-        case .medium:     return "Medium"
-        case .mediumHigh: return "Medium High"
-        case .high:       return "High"
-        }
-    }
+// MARK: - RiskSegment
 
-    /// Default segment colour for each level (used by `InvestmentProfileStyle.default`).
-    /// Colours form a muted earth-tone gradient that matches the design.
-    public var defaultColor: Color {
-        switch self {
-        case .low:        return Color(red: 0.165, green: 0.439, blue: 0.208) // dark green
-        case .mediumLow:  return Color(red: 0.369, green: 0.420, blue: 0.102) // olive green
-        case .medium:     return Color(red: 0.494, green: 0.420, blue: 0.082) // golden brown
-        case .mediumHigh: return Color(red: 0.494, green: 0.200, blue: 0.063) // rust orange
-        case .high:       return Color(red: 0.494, green: 0.067, blue: 0.063) // dark red
-        }
-    }
+/// One segment in the investment-profile risk bar.
+public struct RiskSegment: Identifiable {
 
-    /// Default expanded-section description for each level.
-    public var defaultDescription: String {
-        switch self {
-        case .low:
-            return "Ο πελάτης έχει ως βασικό στόχο τη διατήρηση κεφαλαίου με πολύ χαμηλή ανοχή στον κίνδυνο και στις διακυμάνσεις."
-        case .mediumLow:
-            return "Ο πελάτης έχει ως βασικό στόχο τη σταθερή αύξηση κεφαλαίου με χαμηλή ανοχή στον κίνδυνο και μικρές διακυμάνσεις."
-        case .medium:
-            return "Ο πελάτης έχει ως βασικό στόχο την ισόρροπη ανάπτυξη κεφαλαίου με μέτρια ανοχή στον κίνδυνο και τις διακυμάνσεις."
-        case .mediumHigh:
-            return "Ο πελάτης έχει ως βασικό στόχο τη δυναμική αύξηση κεφαλαίου με υψηλή ανοχή στον κίνδυνο και έντονες διακυμάνσεις."
-        case .high:
-            return "Ο πελάτης έχει ως βασικό στόχο τη μέγιστη δυνατή μακροπρόθεσμη απόδοση, με πολύ υψηλή ανοχή στον κίνδυνο και σε έντονες διακυμάνσεις."
-        }
+    public let id = UUID()
+
+    /// Accessible label for the segment (e.g. "Low", "Medium High").
+    public let label: String
+
+    /// Fill colour used when this segment is *active* (completed).
+    /// When the segment is inactive the card style's `inactiveSegmentColor` is used instead.
+    public let color: ColorProvider
+
+    public init(label: String, color: ColorProvider) {
+        self.label = label
+        self.color = color
     }
 }
 
-// MARK: - InvestmentProfileStyle
+// MARK: - InvestmentProfileCardModel
 
-/// All visual tokens for `InvestmentProfileCard`.
-/// Override only the properties you need — start from `.default`.
-public struct InvestmentProfileStyle {
+/// Data model for `InvestmentProfileCard`.
+///
+/// All fields except `segments`, `completedSegments`, and `expandButtonLabel` are optional
+/// so callers can populate only what the backend provides.
+///
+/// ### Unsuitable state
+/// Set `completedSegments` to `0` to render every segment pill in the inactive
+/// (grey) colour — this represents an "Unsuitable" / "Μη κατάλληλος" profile.
+public struct InvestmentProfileCardModel {
+
+    /// Card heading. Uses `"Επενδυτικό Προφίλ"` when `nil`.
+    public var title: String?
+
+    /// Text shown in the expanded info section. Section is hidden when `nil`.
+    public var expandedDescription: String?
+
+    /// Label under the leftmost segment pill. Defaults to `"Low"` when `nil`.
+    public var lowLabel: String?
+
+    /// Label under the rightmost segment pill. Defaults to `"High"` when `nil`.
+    public var highLabel: String?
+
+    /// All segment pills to display, in order from lowest to highest risk.
+    public var segments: [RiskSegment]
+
+    /// Number of leading segments to colour as "active".
+    /// `0` = all grey (Unsuitable); `segments.count` = all filled.
+    public var completedSegments: Int
+
+    /// Pre-formatted "Valid Until" date string. Row is hidden when `nil`.
+    public var validUntil: String?
+
+    /// Pre-formatted expiry date string. Warning row is hidden when `nil`.
+    public var expiredSince: String?
+
+    /// Label on the expandable-info button.
+    public var expandButtonLabel: String
+
+    /// Label shown above the segment bar (e.g. `"High"`, `"Μη κατάλληλος"`).
+    /// Row is hidden when `nil`.
+    public var activeLabel: String?
+
+    public init(
+        title: String?           = "Επενδυτικό Προφίλ",
+        expandedDescription: String? = nil,
+        lowLabel: String?        = "Low",
+        highLabel: String?       = "High",
+        segments: [RiskSegment],
+        completedSegments: Int,
+        validUntil: String?      = nil,
+        expiredSince: String?    = nil,
+        expandButtonLabel: String = "Τι σημαίνει αυτό για εσένα",
+        activeLabel: String?     = nil
+    ) {
+        self.title               = title
+        self.expandedDescription = expandedDescription
+        self.lowLabel            = lowLabel
+        self.highLabel           = highLabel
+        self.segments            = segments
+        self.completedSegments   = completedSegments
+        self.validUntil          = validUntil
+        self.expiredSince        = expiredSince
+        self.expandButtonLabel   = expandButtonLabel
+        self.activeLabel         = activeLabel
+    }
+}
+
+// MARK: - InvestmentProfileCardStyle
+
+/// Visual theming tokens for `InvestmentProfileCard`.
+/// Segment fill colours come from each `RiskSegment.color` — only chrome and
+/// inactive-state values live here.
+public struct InvestmentProfileCardStyle {
 
     // MARK: Segment bar
 
-    /// A colour for every possible active risk level.
-    /// When the card displays `riskLevel`, filled segments use `segmentColors[riskLevel]`.
-    public var segmentColors: [RiskLevel: Color]
-
-    /// Colour of unfilled (inactive) segments.
+    /// Colour used for unfilled (inactive) segment pills.
     public var inactiveSegmentColor: Color
 
     /// Height of each segment pill.
@@ -74,10 +116,10 @@ public struct InvestmentProfileStyle {
 
     // MARK: Typography / chrome
 
-    /// Colour of the expand-info button and chevron icon.
+    /// Colour of the expand-info button text and chevron icon.
     public var expandButtonColor: Color
 
-    /// Colour of the "Expired since" text.
+    /// Colour of the "Expired since" warning text.
     public var warningTextColor: Color
 
     /// Colour of the warning triangle icon.
@@ -97,7 +139,6 @@ public struct InvestmentProfileStyle {
     // MARK: – Initialiser
 
     public init(
-        segmentColors: [RiskLevel: Color],
         inactiveSegmentColor: Color,
         segmentHeight: CGFloat,
         segmentSpacing: CGFloat,
@@ -108,7 +149,6 @@ public struct InvestmentProfileStyle {
         cardCornerRadius: CGFloat,
         shadowColor: Color
     ) {
-        self.segmentColors        = segmentColors
         self.inactiveSegmentColor = inactiveSegmentColor
         self.segmentHeight        = segmentHeight
         self.segmentSpacing       = segmentSpacing
@@ -123,11 +163,7 @@ public struct InvestmentProfileStyle {
     // MARK: – Default style
 
     /// Ready-to-use style that matches the original design.
-    /// Each risk level has its own distinct segment colour out of the box.
-    public static let `default` = InvestmentProfileStyle(
-        segmentColors: Dictionary(
-            uniqueKeysWithValues: RiskLevel.allCases.map { ($0, $0.defaultColor) }
-        ),
+    public static let `default` = InvestmentProfileCardStyle(
         inactiveSegmentColor : Color(red: 0.88, green: 0.88, blue: 0.88),
         segmentHeight        : 12,
         segmentSpacing       : 6,
@@ -138,140 +174,80 @@ public struct InvestmentProfileStyle {
         cardCornerRadius     : 16,
         shadowColor          : Color.black.opacity(0.10)
     )
-
-    // MARK: – Convenience mutators
-
-    /// Returns a copy of the style with one risk level's segment colour replaced.
-    public func segmentColor(_ color: Color, for level: RiskLevel) -> InvestmentProfileStyle {
-        var copy = self
-        copy.segmentColors[level] = color
-        return copy
-    }
-}
-
-// MARK: - InvestmentProfileModel
-
-/// Single source of truth for `InvestmentProfileCard`.
-/// Pass this model to the card view; change values here to update all visuals.
-public struct InvestmentProfileModel {
-
-    // MARK: Data
-
-    /// Card heading text.
-    public var title: String
-
-    /// The investor's current risk level.
-    public var riskLevel: RiskLevel
-
-    /// Optional custom label for the risk level.
-    /// Falls back to `riskLevel.defaultLabel` when `nil`.
-    public var riskLevelLabel: String?
-
-    /// The date until which the profile is valid, as a pre-formatted string.
-    public var validUntil: String
-
-    /// Optional expiry date. When non-nil a warning row is rendered.
-    public var expiredSince: String?
-
-    /// Label for the expandable information button.
-    public var expandButtonLabel: String
-
-    /// Text shown in the expanded section.
-    /// Falls back to `riskLevel.defaultDescription` when `nil`.
-    public var expandedDescription: String?
-
-    // MARK: Style
-
-    /// All visual tokens. Swap or mutate to theme the card.
-    public var style: InvestmentProfileStyle
-
-    // MARK: – Computed helpers
-
-    /// The label shown above the segment bar.
-    public var resolvedRiskLevelLabel: String {
-        riskLevelLabel ?? riskLevel.defaultLabel
-    }
-
-    /// The active colour for the current risk level (used for the label text).
-    public var activeSegmentColor: Color {
-        style.segmentColors[riskLevel] ?? riskLevel.defaultColor
-    }
-
-    /// The description shown in the expanded section.
-    public var resolvedExpandedDescription: String {
-        expandedDescription ?? riskLevel.defaultDescription
-    }
-
-    // MARK: – Initialisers
-
-    public init(
-        title: String = "Επενδυτικό Προφίλ",
-        riskLevel: RiskLevel,
-        riskLevelLabel: String? = nil,
-        validUntil: String,
-        expiredSince: String? = nil,
-        expandButtonLabel: String = "Τι σημαίνει αυτό για εσένα",
-        expandedDescription: String? = nil,
-        style: InvestmentProfileStyle = .default
-    ) {
-        self.title                = title
-        self.riskLevel            = riskLevel
-        self.riskLevelLabel       = riskLevelLabel
-        self.validUntil           = validUntil
-        self.expiredSince         = expiredSince
-        self.expandButtonLabel    = expandButtonLabel
-        self.expandedDescription  = expandedDescription
-        self.style                = style
-    }
 }
 
 // MARK: - InvestmentProfileCard
 
-/// A reusable card view driven entirely by `InvestmentProfileModel`.
+/// A reusable card view driven entirely by `InvestmentProfileCardModel`.
 ///
-/// ### Minimal usage
+/// ### Standard 5-level usage
 /// ```swift
-/// InvestmentProfileCard(model: InvestmentProfileModel(
-///     riskLevel: .low,
+/// InvestmentProfileCard(model: InvestmentProfileCardModel(
+///     segments: RiskSegment.defaultSegments,
+///     completedSegments: 5,          // High
 ///     validUntil: "January 9, 2028",
-///     expiredSince: "January 12, 2026"
+///     expiredSince: "January 12, 2026",
+///     expandedDescription: "Ο πελάτης ...",
+///     activeLabel: "High"
 /// ))
 /// ```
 ///
-/// ### Custom colours per level
+/// ### Unsuitable state (all segments grey)
 /// ```swift
-/// var style = InvestmentProfileStyle.default
-/// style.segmentColors[.high] = .purple
-/// InvestmentProfileCard(model: InvestmentProfileModel(
-///     riskLevel: .high,
-///     validUntil: "March 1, 2029",
-///     style: style
+/// InvestmentProfileCard(model: InvestmentProfileCardModel(
+///     segments: RiskSegment.defaultSegments,
+///     completedSegments: 0,
+///     validUntil: "January 9, 2028",
+///     expiredSince: "January 12, 2026",
+///     activeLabel: "Μη κατάλληλος"
 /// ))
 /// ```
 public struct InvestmentProfileCard: View {
 
     // MARK: – Input
 
-    public var model: InvestmentProfileModel
+    public var model: InvestmentProfileCardModel
+    public var style: InvestmentProfileCardStyle
 
     /// Closure called when the user taps the expand button.
     public var onExpandTapped: () -> Void
 
-    // MARK: – Internal state
+    // MARK: – State
 
     @State private var isExpanded: Bool = false
 
-    // MARK: – Convenience shorthands
+    // MARK: – Initialisers
 
-    private var style: InvestmentProfileStyle { model.style }
-    private var segmentCount: Int { RiskLevel.allCases.count }
+    public init(
+        model: InvestmentProfileCardModel,
+        style: InvestmentProfileCardStyle = .default,
+        onExpandTapped: @escaping () -> Void = {}
+    ) {
+        self.model          = model
+        self.style          = style
+        self.onExpandTapped = onExpandTapped
+    }
+
+    // MARK: – Helpers
+
+    /// Colour for the active-label text above the segment bar.
+    /// Uses the last completed segment's colour, or `.black` when nothing is completed.
+    private var activeLabelColor: Color {
+        let idx = model.completedSegments - 1
+        guard idx >= 0, idx < model.segments.count else { return .black }
+        return model.segments[idx].color
+    }
 
     // MARK: – Body
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            titleSection
-                .padding(.bottom, 14)
+            if let title = model.title {
+                Text(title)
+                    .font(.system(size: 18, weight: .bold))
+                    .foregroundColor(.black)
+                    .padding(.bottom, 14)
+            }
 
             riskBarSection
                 .padding(.bottom, 16)
@@ -282,16 +258,20 @@ public struct InvestmentProfileCard: View {
             expandButton
                 .padding(.bottom, isExpanded ? 12 : 16)
 
-            if isExpanded {
-                Text(model.resolvedExpandedDescription)
+            if isExpanded, let description = model.expandedDescription {
+                Text(description)
                     .font(.system(size: 14))
                     .foregroundColor(.black)
                     .fixedSize(horizontal: false, vertical: true)
                     .padding(.bottom, 16)
             }
 
-            validUntilRow
-                .padding(.bottom, model.expiredSince != nil ? 12 : 0)
+            if let validUntil = model.validUntil {
+                Text("Valid Until: \(validUntil)")
+                    .font(.system(size: 14))
+                    .foregroundColor(.black)
+                    .padding(.bottom, model.expiredSince != nil ? 12 : 0)
+            }
 
             if let expired = model.expiredSince {
                 expiredRow(date: expired)
@@ -305,26 +285,22 @@ public struct InvestmentProfileCard: View {
 
     // MARK: – Subviews
 
-    private var titleSection: some View {
-        Text(model.title)
-            .font(.system(size: 18, weight: .bold))
-            .foregroundColor(.black)
-    }
-
     private var riskBarSection: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(model.resolvedRiskLevelLabel)
-                .font(.system(size: 15, weight: .semibold))
-                .foregroundColor(model.activeSegmentColor)
+            if let label = model.activeLabel {
+                Text(label)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(activeLabelColor)
+            }
 
             segmentBar
 
             HStack {
-                Text("Low")
+                Text(model.lowLabel ?? "Low")
                     .font(.system(size: 11))
                     .foregroundColor(.gray)
                 Spacer()
-                Text("High")
+                Text(model.highLabel ?? "High")
                     .font(.system(size: 11))
                     .foregroundColor(.gray)
             }
@@ -333,19 +309,19 @@ public struct InvestmentProfileCard: View {
 
     private var segmentBar: some View {
         GeometryReader { geo in
-            let totalSpacing = style.segmentSpacing * CGFloat(segmentCount - 1)
-            let segmentWidth = (geo.size.width - totalSpacing) / CGFloat(segmentCount)
+            let count = model.segments.count
+            if count > 0 {
+                let totalSpacing = style.segmentSpacing * CGFloat(count - 1)
+                let segmentWidth = (geo.size.width - totalSpacing) / CGFloat(count)
 
-            HStack(spacing: style.segmentSpacing) {
-                ForEach(1...segmentCount, id: \.self) { index in
-                    let positionLevel = RiskLevel(rawValue: index)
-                    let activeColor = positionLevel.map { style.segmentColors[$0] ?? $0.defaultColor }
-                                      ?? style.inactiveSegmentColor
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(index <= model.riskLevel.rawValue
-                              ? activeColor
-                              : style.inactiveSegmentColor)
-                        .frame(width: segmentWidth, height: style.segmentHeight)
+                HStack(spacing: style.segmentSpacing) {
+                    ForEach(model.segments.indices, id: \.self) { index in
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(index < model.completedSegments
+                                  ? model.segments[index].color
+                                  : style.inactiveSegmentColor)
+                            .frame(width: segmentWidth, height: style.segmentHeight)
+                    }
                 }
             }
         }
@@ -372,12 +348,6 @@ public struct InvestmentProfileCard: View {
         .buttonStyle(.plain)
     }
 
-    private var validUntilRow: some View {
-        Text("Valid Until: \(model.validUntil)")
-            .font(.system(size: 14))
-            .foregroundColor(.black)
-    }
-
     private func expiredRow(date: String) -> some View {
         HStack(spacing: 8) {
             Image(systemName: "exclamationmark.triangle")
@@ -391,39 +361,21 @@ public struct InvestmentProfileCard: View {
     }
 }
 
-// MARK: – Public initialisers
+// MARK: - RiskSegment default factory
 
-public extension InvestmentProfileCard {
+public extension RiskSegment {
 
-    /// Primary initialiser — provide a fully-configured model.
-    init(model: InvestmentProfileModel, onExpandTapped: @escaping () -> Void = {}) {
-        self.model           = model
-        self.onExpandTapped  = onExpandTapped
-    }
-
-    /// Convenience initialiser that builds the model inline with default style.
-    init(
-        title: String = "Επενδυτικό Προφίλ",
-        riskLevel: RiskLevel = .low,
-        validUntil: String,
-        expiredSince: String? = nil,
-        expandButtonLabel: String = "Τι σημαίνει αυτό για εσένα",
-        expandedDescription: String? = nil,
-        style: InvestmentProfileStyle = .default,
-        onExpandTapped: @escaping () -> Void = {}
-    ) {
-        self.init(
-            model: InvestmentProfileModel(
-                title: title,
-                riskLevel: riskLevel,
-                validUntil: validUntil,
-                expiredSince: expiredSince,
-                expandButtonLabel: expandButtonLabel,
-                expandedDescription: expandedDescription,
-                style: style
-            ),
-            onExpandTapped: onExpandTapped
-        )
+    /// Standard five-segment set with earth-tone colours that matches the design.
+    /// Use these as a starting point; replace any segment's colour to match
+    /// whatever the backend returns.
+    static var defaultSegments: [RiskSegment] {
+        [
+            RiskSegment(label: "Low",         color: Color(red: 0.165, green: 0.439, blue: 0.208)),
+            RiskSegment(label: "Medium Low",  color: Color(red: 0.369, green: 0.420, blue: 0.102)),
+            RiskSegment(label: "Medium",      color: Color(red: 0.494, green: 0.420, blue: 0.082)),
+            RiskSegment(label: "Medium High", color: Color(red: 0.494, green: 0.200, blue: 0.063)),
+            RiskSegment(label: "High",        color: Color(red: 0.494, green: 0.067, blue: 0.063)),
+        ]
     }
 }
 
@@ -432,69 +384,64 @@ public extension InvestmentProfileCard {
 #if DEBUG
 struct InvestmentProfileCard_Previews: PreviewProvider {
 
-    /// Shows all five risk levels, each with its own distinct default colour.
     static var previews: some View {
         ScrollView {
             VStack(spacing: 20) {
-                // --- Low (dark green) — matches the original design ---
-                InvestmentProfileCard(model: InvestmentProfileModel(
-                    riskLevel: .low,
+
+                // --- High (all 5 segments filled, expanded description) ---
+                InvestmentProfileCard(model: InvestmentProfileCardModel(
+                    segments: RiskSegment.defaultSegments,
+                    completedSegments: 5,
                     validUntil: "January 9, 2028",
-                    expiredSince: "January 12, 2026"
-                ))
-                .previewDisplayName("Low – expired")
-
-                // --- Medium Low (olive green) ---
-                InvestmentProfileCard(model: InvestmentProfileModel(
-                    riskLevel: .mediumLow,
-                    validUntil: "June 30, 2027"
-                ))
-                .previewDisplayName("Medium Low – valid")
-
-                // --- Medium (golden brown) ---
-                InvestmentProfileCard(model: InvestmentProfileModel(
-                    riskLevel: .medium,
-                    validUntil: "December 31, 2030"
-                ))
-                .previewDisplayName("Medium – valid")
-
-                // --- Medium High (rust orange) ---
-                InvestmentProfileCard(model: InvestmentProfileModel(
-                    riskLevel: .mediumHigh,
-                    validUntil: "September 1, 2028",
-                    expiredSince: "September 1, 2025"
-                ))
-                .previewDisplayName("Medium High – expired")
-
-                // --- High (dark red) ---
-                InvestmentProfileCard(model: InvestmentProfileModel(
-                    riskLevel: .high,
-                    validUntil: "March 1, 2029",
-                    expiredSince: "March 1, 2025"
+                    expiredSince: "January 12, 2026",
+                    expandedDescription: "Ο πελάτης έχει ως βασικό στόχο τη μέγιστη δυνατή μακροπρόθεσμη απόδοση, με πολύ υψηλή ανοχή στον κίνδυνο και σε έντονες διακυμάνσεις.",
+                    activeLabel: "High"
                 ))
                 .previewDisplayName("High – expired")
 
-                // --- Custom style: all levels use purple segments ---
-                InvestmentProfileCard(model: InvestmentProfileModel(
-                    title: "Custom Style",
-                    riskLevel: .medium,
-                    validUntil: "July 4, 2028",
-                    style: InvestmentProfileStyle(
-                        segmentColors: Dictionary(
-                            uniqueKeysWithValues: RiskLevel.allCases.map { ($0, Color.purple) }
-                        ),
-                        inactiveSegmentColor : Color(red: 0.88, green: 0.88, blue: 0.88),
-                        segmentHeight        : 12,
-                        segmentSpacing       : 6,
-                        expandButtonColor    : .purple,
-                        warningTextColor     : Color(red: 0.85, green: 0.22, blue: 0.22),
-                        warningIconColor     : Color(red: 0.95, green: 0.50, blue: 0.13),
-                        cardBackground       : Color(white: 0.97),
-                        cardCornerRadius     : 20,
-                        shadowColor          : Color.purple.opacity(0.15)
-                    )
+                // --- Unsuitable (completedSegments = 0, all grey) ---
+                InvestmentProfileCard(model: InvestmentProfileCardModel(
+                    segments: RiskSegment.defaultSegments,
+                    completedSegments: 0,
+                    validUntil: "January 9, 2028",
+                    expiredSince: "January 12, 2026",
+                    activeLabel: "Μη κατάλληλος"
                 ))
-                .previewDisplayName("Custom (purple)")
+                .previewDisplayName("Unsuitable – expired")
+
+                // --- Medium (3 of 5 filled) ---
+                InvestmentProfileCard(model: InvestmentProfileCardModel(
+                    segments: RiskSegment.defaultSegments,
+                    completedSegments: 3,
+                    validUntil: "December 31, 2030",
+                    expandedDescription: "Ο πελάτης έχει ως βασικό στόχο την ισόρροπη ανάπτυξη κεφαλαίου με μέτρια ανοχή στον κίνδυνο και τις διακυμάνσεις.",
+                    activeLabel: "Medium"
+                ))
+                .previewDisplayName("Medium – valid")
+
+                // --- Low (1 of 5 filled) ---
+                InvestmentProfileCard(model: InvestmentProfileCardModel(
+                    segments: RiskSegment.defaultSegments,
+                    completedSegments: 1,
+                    validUntil: "June 30, 2027",
+                    expandedDescription: "Ο πελάτης έχει ως βασικό στόχο τη διατήρηση κεφαλαίου με πολύ χαμηλή ανοχή στον κίνδυνο και στις διακυμάνσεις.",
+                    activeLabel: "Low"
+                ))
+                .previewDisplayName("Low – valid")
+
+                // --- Custom: backend-provided 4-segment bar ---
+                InvestmentProfileCard(model: InvestmentProfileCardModel(
+                    segments: [
+                        RiskSegment(label: "Conservative", color: .blue),
+                        RiskSegment(label: "Balanced",     color: .teal),
+                        RiskSegment(label: "Growth",       color: .orange),
+                        RiskSegment(label: "Aggressive",   color: .red),
+                    ],
+                    completedSegments: 2,
+                    validUntil: "July 4, 2028",
+                    activeLabel: "Balanced"
+                ))
+                .previewDisplayName("Custom 4-segment")
             }
             .padding()
         }
@@ -503,3 +450,4 @@ struct InvestmentProfileCard_Previews: PreviewProvider {
     }
 }
 #endif
+
